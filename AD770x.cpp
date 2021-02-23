@@ -90,8 +90,23 @@ void AD770X::reset() {
     digitalWrite(pinCS, HIGH);
 }
 
-AD770X::AD770X(double vref) {
-    VRef = vref;
+#if defined(ESP32)
+AD770X::AD770X(double vref, SPIClass * _vspi, int Clk, int CS) {
+	vspi = _vspi;
+	spiClk = Clk;
+	pinCS = CS;
+	VRef = vref;
+    pinMode(pinCS, OUTPUT);
+
+    digitalWrite(pinCS, HIGH);
+}	
+#else
+AD770X::AD770X(double vref, int MOSI, int MISO, int SPIClock, int CS) {
+    pinMOSI = MOSI;
+	pinMISO = MISO;
+	pinSPIClock = SPIClock;
+	pinCS = CS;
+	VRef = vref;
     pinMode(pinMOSI, OUTPUT);
     pinMode(pinMISO, INPUT);
     pinMode(pinSPIClock, OUTPUT);
@@ -100,6 +115,9 @@ AD770X::AD770X(double vref) {
     digitalWrite(pinCS, HIGH);
     SPCR = _BV(SPE) | _BV(MSTR) | _BV(CPOL) | _BV(CPHA) | _BV(SPI2X) | _BV(SPR1) | _BV(SPR0);
 }
+#endif
+
+
 
 void AD770X::init(byte channel, byte clkDivider, byte polarity, byte gain, byte updRate) {
     setNextOperation(REG_CLOCK, channel, 0);

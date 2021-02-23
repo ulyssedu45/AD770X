@@ -2,13 +2,15 @@
 #define AD770X_H
 
 #include <Arduino.h>
-
+#if defined(ESP32)
+	#include <SPI.h>
+#endif
 /*
  * AD7705/AD7706 Library
  * Kerry D. Wong
  * http://www.kerrywong.com
  * Initial version 1.0 3/2011
- * Updated 1.1 4/2012
+ * Updated 2.0 02/2021 (BY BALLESTEROS ULYSSE)
  */
 
 class AD770X {
@@ -66,14 +68,26 @@ public:
     static const byte CLK_DIV_2 = 0x2;
 
     byte spiTransfer(volatile byte data) {
-        SPDR = data;
+		#if defined(ESP32)
+			vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE0));
+			byte result = vspi->transfer(data);
+			vspi->endTransaction();
+			
+			return result;
+		#else
+			SPDR = data;
 
-        while (!(SPSR & _BV(SPIF)));
+			while (!(SPSR & _BV(SPIF)));
 
-        return SPDR;
+			return SPDR;
+		#endif
     };
-
-    AD770X(double vref);
+	
+	#if defined(ESP32)
+		AD770X(double vref, SPIClass * _vspi, int Clk, int CS);
+	#else
+		AD770X(double vref, int MOSI, int MISO, int SPIClock, int CS);
+	#endif
     void setNextOperation(byte reg, byte channel, byte readWrite);
     void writeClockRegister(byte CLKDIS, byte CLKDIV, byte outputUpdateRate);
     void writeSetupRegister(byte operationMode, byte gain, byte unipolar, byte buffered, byte fsync);
@@ -83,11 +97,21 @@ public:
     bool dataReady(byte channel);
     void init(byte channel);
     void init(byte channel, byte clkDivider, byte polarity, byte gain, byte updRate);
+	#if defined(ESP32)
+	void updateSPI(SPIClass * _vspi){
+		vspi = _vspi;
+	}
+	#endif
 private:
-    static const int pinMOSI = 11; //MOSI
-    static const int pinMISO = 12; //MISO
-    static const int pinSPIClock = 13; //SCK
-    static const int pinCS = 10; //CS
+	#if defined(ESP32)
+		SPIClass * vspi;
+		int spiClk;
+	#else
+		int pinMOSI = 11; //MOSI
+		int pinMISO = 12; //MISO
+		int pinSPIClock = 13; //SCK
+	#endif
+    int pinCS = 10; //CS
     double VRef;
     unsigned int readADResult();
 };
